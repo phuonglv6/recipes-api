@@ -1,53 +1,39 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"time"
+	"context"
+	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/xid"
+	handlers "github.com/phuonglv6/recipes-api/handlers"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-var recipes []Recipe
-
-type Recipe struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Tags         []string  `json:"tags"`
-	Ingredients  []string  `json:"ingredients"`
-	Instructions []string  `json:"instructions"`
-	PublishedAt  time.Time `json:"publishedAt"`
-}
+var recipesHandler *handlers.RecipesHandler
 
 func init() {
-	fmt.Println("init() is calling")
-	recipes = make([]Recipe, 0)
-	file, _ := ioutil.ReadFile("recipes.json")
-	_ = json.Unmarshal([]byte(file), &recipes)
-
-}
-func NewRecipeHandler(c *gin.Context) {
-	var recipe Recipe
-	if err := c.ShouldBindJSON(&recipe); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error()})
-		return
+	ctx := context.Background()
+	client, err := mongo.Connect(ctx,
+		options.Client().ApplyURI(os.Getenv("MONGO_URI")))
+	if err = client.Ping(context.TODO(),
+		readpref.Primary()); err != nil {
+		log.Fatal(err)
 	}
-	recipe.ID = xid.New().String()
-	recipe.PublishedAt = time.Now()
-	recipes = append(recipes, recipe)
-	c.JSON(http.StatusOK, recipe)
-}
-func ListRecipesHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, recipes)
+	log.Println("Connected to MongoDB")
+	collection := client.Database(os.Getenv(
+		"MONGO_DATABASE")).Collection("recipes")
+	recipesHandler = handlers.NewRecipesHandler(ctx,
+		collection)
 }
 func main() {
 	router := gin.Default()
-	router.POST("/recipes", NewRecipeHandler)
-	router.GET("/recipes", ListRecipesHandler)
-
+	router.POST("/recipes", recipesHandler.NewRecipeHandler)
+	router.GET("/recipes",
+		recipesHandler.ListRecipesHandler)
+	router.PUT("/recipes/:id",
+		recipesHandler.UpdateRecipeHandler)
 	router.Run()
 }
