@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/phuonglv6/recipes-api.git/models"
+	"github.com/phuonglv6/recipes-api/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
 )
@@ -36,4 +38,24 @@ func (handler *RecipesHandler) ListRecipesHandler(c *gin.Context) {
 		recipes = append(recipes, recipe)
 	}
 	c.JSON(http.StatusOK, recipes)
+}
+func (handler *RecipesHandler) NewRecipeHandler(c *gin.Context) {
+	var recipe models.Recipe
+	if err := c.ShouldBindJSON(&recipe); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	recipe.ID = primitive.NewObjectID()
+	recipe.PublishedAt = time.Now()
+	_, err := handler.collection.InsertOne(handler.ctx, recipe)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while inserting a new recipe"})
+		return
+	}
+
+	// log.Println("Remove data from Redis")
+	// handler.redisClient.Del("recipes")
+
+	c.JSON(http.StatusOK, recipe)
 }
