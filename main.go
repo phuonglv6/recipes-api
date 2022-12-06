@@ -25,15 +25,15 @@ func init() {
 	log.Println("Connected to MongoDB")
 	collection := client.Database(os.Getenv(
 		"MONGO_DATABASE")).Collection("recipes")
-	recipesHandler = handlers.NewRecipesHandler(ctx,
-		collection)
+	recipesHandler = handlers.NewRecipesHandler(ctx, collection)
+
 }
 func main() {
 	router := gin.Default()
+	router.GET("/recipes", recipesHandler.ListRecipesHandler)
 	router.POST("/recipes", recipesHandler.NewRecipeHandler)
-	router.GET("/recipes",
-		recipesHandler.ListRecipesHandler)
-	router.PUT("/recipes/:id",
-		recipesHandler.UpdateRecipeHandler)
+
+	// router.PUT("/recipes/:id",
+	// 	recipesHandler.UpdateRecipeHandler)
 	router.Run()
 }
